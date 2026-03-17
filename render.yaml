@@ -1,0 +1,113 @@
+# ============================================
+# RENDER BLUEPRINT - EMERGENCY RESPONSE PLATFORM
+# ============================================
+
+services:
+  # 1. Auth Service
+  - type: web
+    name: emergency-auth-service
+    env: docker
+    dockerContext: BACKEND/auth-service
+    dockerFilePath: BACKEND/auth-service/Dockerfile
+    plan: free
+    region: oregon 
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Should be set in dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RABBITMQ_URL
+        sync: false # CloudAMQP URL
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
+
+  # 2. Incident Service
+  - type: web
+    name: emergency-incident-service
+    env: docker
+    dockerContext: BACKEND/incident-service
+    dockerFilePath: BACKEND/incident-service/Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        fromService:
+          name: emergency-auth-service
+          type: web
+          envVarKey: JWT_SECRET
+      - key: RABBITMQ_URL
+        fromService:
+          name: emergency-auth-service
+          type: web
+          envVarKey: RABBITMQ_URL
+      - key: AUTH_SERVICE_URL
+        fromService:
+          name: emergency-auth-service
+          type: web
+          property: host
+      - key: PORT
+        value: 3002
+      - key: NODE_ENV
+        value: production
+
+  # 3. Dispatch Service
+  - type: web
+    name: emergency-dispatch-service
+    env: docker
+    dockerContext: BACKEND/dispatch-service
+    dockerFilePath: BACKEND/dispatch-service/Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false # MongoDB URL
+      - key: JWT_SECRET
+        fromService:
+          name: emergency-auth-service
+          type: web
+          envVarKey: JWT_SECRET
+      - key: RABBITMQ_URL
+        fromService:
+          name: emergency-auth-service
+          type: web
+          envVarKey: RABBITMQ_URL
+      - key: PORT
+        value: 3003
+      - key: WS_PORT
+        value: 3003
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: "*" # Update with your frontend URL later
+
+  # 4. Analytics Service
+  - type: web
+    name: emergency-analytics-service
+    env: docker
+    dockerContext: BACKEND/analytics-service
+    dockerFilePath: BACKEND/analytics-service/Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        fromService:
+          name: emergency-auth-service
+          type: web
+          envVarKey: JWT_SECRET
+      - key: RABBITMQ_URL
+        fromService:
+          name: emergency-auth-service
+          type: web
+          envVarKey: RABBITMQ_URL
+      - key: INCIDENT_SERVICE_URL
+        fromService:
+          name: emergency-incident-service
+          type: web
+          property: host
+      - key: PORT
+        value: 3004
+      - key: NODE_ENV
+        value: production
