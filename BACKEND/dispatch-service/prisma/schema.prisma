@@ -1,0 +1,114 @@
+// ============================================
+// DISPATCH SERVICE - PRISMA SCHEMA (MONGODB)
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// VEHICLES TABLE
+// ============================================
+model Vehicle {
+  vehicleId          String    @id @default(auto()) @map("_id") @db.ObjectId
+  registrationNumber String    @unique @map("registration_number")
+  type               VehicleType
+  region             String?   
+  capacity           Int       @default(4)
+  status             VehicleStatus @default(IDLE)
+  driverName         String?   @map("driver_name") 
+  driverPhone        String?   @map("driver_phone") 
+  currentLatitude    Float?    @map("current_latitude") 
+  currentLongitude   Float?    @map("current_longitude") 
+  fuelLevel          Int       @default(100) @map("fuel_level")
+  mileage            Int       @default(0)
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  locationHistory    LocationHistory[]
+  assignments        VehicleAssignment[]
+
+  @@map("vehicles")
+}
+
+// ============================================
+// LOCATION HISTORY TABLE
+// ============================================
+model LocationHistory {
+  historyId  String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId  String   @map("vehicle_id") @db.ObjectId
+  latitude   Float    
+  longitude  Float    
+  speed      Float    @default(0) 
+  heading    Int      @default(0)
+  accuracy   Int      @default(0)
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@map("location_history")
+}
+
+// ============================================
+// VEHICLE ASSIGNMENTS TABLE
+// ============================================
+model VehicleAssignment {
+  assignmentId         String    @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId            String    @map("vehicle_id") @db.ObjectId
+  incidentId           String    @map("incident_id") // UUID string from incident-service
+  assignmentType       AssignmentType? @map("assignment_type")
+  assignedAt           DateTime  @default(now()) @map("assigned_at")
+  startedAt            DateTime? @map("started_at")
+  completedAt          DateTime? @map("completed_at")
+  estimatedArrivalTime DateTime? @map("estimated_arrival_time")
+  actualArrivalTime    DateTime? @map("actual_arrival_time")
+  status               AssignmentStatus @default(PENDING)
+  notes                String?   
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([incidentId])
+  @@map("vehicle_assignments")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+enum VehicleType {
+  AMBULANCE
+  FIRE_TRUCK
+  POLICE_CAR
+}
+
+enum VehicleStatus {
+  IDLE
+  EN_ROUTE
+  ON_SCENE
+  DISPATCHED
+  RETURNING
+  MAINTENANCE
+}
+
+enum AssignmentType {
+  DISPATCH
+  SUPPORT
+  REROUTE
+}
+
+enum AssignmentStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  IN_TRANSIT
+  ON_SCENE
+  COMPLETED
+  CANCELLED
+}

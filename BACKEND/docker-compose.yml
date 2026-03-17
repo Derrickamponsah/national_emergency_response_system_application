@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: emergency-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: emergency-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:6
+    container_name: emergency-mongodb
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27017", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }).ok }"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  auth-service:
+    build: ./auth-service
+    container_name: emergency-auth-service
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/emergency_auth_db?schema=public
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      PORT: 3001
+      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  incident-service:
+    build: ./incident-service
+    container_name: emergency-incident-service
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/emergency_incidents_db?schema=public
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      PORT: 3002
+      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  dispatch-service:
+    build: ./dispatch-service
+    container_name: emergency-dispatch-service
+    environment:
+      DATABASE_URL: mongodb://mongodb:27017/emergency_dispatch_db?replicaSet=rs0
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      PORT: 3003
+      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+      WS_PORT: 3003
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "3003:3003"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: emergency-analytics-service
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/emergency_analytics_db?schema=public
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      PORT: 3004
+      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
