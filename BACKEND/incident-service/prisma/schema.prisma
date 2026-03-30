@@ -16,7 +16,7 @@ datasource db {
 // RESPONDERS TABLE
 // ============================================
 model Responder {
-  responderId  String    @id @default(uuid()) @map("responder_id") @db.Uuid
+  responderId  String    @id @default(uuid()) @map("responder_id")
   name         String    @db.VarChar(255)
   email        String    @unique @db.VarChar(255)
   phone        String    @db.VarChar(20)
@@ -45,7 +45,7 @@ model Responder {
 // INCIDENTS TABLE
 // ============================================
 model Incident {
-  incidentId          String    @id @default(uuid()) @map("incident_id") @db.Uuid
+  incidentId          String    @id @default(uuid()) @map("incident_id")
   title               String    @db.VarChar(255)
   description         String?   @db.Text
   type                IncidentType
@@ -55,10 +55,10 @@ model Incident {
   longitude           Decimal?  @db.Decimal(11, 8)
   severity            Severity  @default(MEDIUM)
   status              IncidentStatus @default(CREATED)
-  assignedResponderId String?   @map("assigned_responder_id") @db.Uuid
+  assignedResponderId String?   @map("assigned_responder_id") @db.VarChar(255)
   reporterName        String?   @map("reporter_name") @db.VarChar(255)
   reporterPhone       String?   @map("reporter_phone") @db.VarChar(20)
-  createdBy           String?   @map("created_by") @db.Uuid
+  createdBy           String?   @map("created_by") @db.VarChar(255)
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
   resolvedAt          DateTime? @map("resolved_at")
@@ -78,9 +78,9 @@ model Incident {
 // INCIDENT RESPONDERS JUNCTION TABLE
 // ============================================
 model IncidentResponder {
-  id          String    @id @default(uuid()) @db.Uuid
-  incidentId  String    @map("incident_id") @db.Uuid
-  responderId String    @map("responder_id") @db.Uuid
+  id          String    @id @default(uuid())
+  incidentId  String    @map("incident_id") @db.VarChar(255)
+  responderId String    @map("responder_id") @db.VarChar(255)
   assignedAt  DateTime  @default(now()) @map("assigned_at")
   arrivedAt   DateTime? @map("arrived_at")
   completedAt DateTime? @map("completed_at")

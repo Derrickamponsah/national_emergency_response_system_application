@@ -13,21 +13,34 @@ L.Icon.Default.mergeOptions({
 });
 
 // Custom Icons for different types
-const getIcon = (type, color) => {
+const getIcon = (type, color, status) => {
+    const colorClasses = {
+        teal: { bg: 'bg-teal-500' },
+        rose: { bg: 'bg-rose-500' },
+        amber: { bg: 'bg-amber-500' },
+        blue: { bg: 'bg-blue-500' },
+        primary: { bg: 'bg-primary' },
+        orange: { bg: 'bg-orange-500' },
+    };
+    const c = colorClasses[color] || colorClasses.blue;
+    
+    const isMoving = status === 'DISPATCHED' || status === 'EN_ROUTE' || status === 'ACTIVE';
+
     const iconHtml = `
         <div class="relative w-10 h-10 flex items-center justify-center">
-            <div class="absolute inset-0 bg-${color}-500 opacity-20 rounded-full animate-ping"></div>
-            <div class="relative w-8 h-8 bg-${color}-500 rounded-full border-2 border-white flex items-center justify-center text-white shadow-lg overflow-hidden">
+            <div class="absolute inset-0 ${c.bg} opacity-20 rounded-full ${isMoving ? 'animate-ping' : 'animate-pulse'}"></div>
+            <div class="relative w-8 h-8 ${c.bg} rounded-full border-2 border-white flex items-center justify-center text-white shadow-lg overflow-hidden ${isMoving ? 'scale-110 drop-shadow-xl' : ''}">
                 <span class="material-symbols-outlined text-[18px]">
                     ${type === 'INCIDENT' ? 'emergency' : type === 'AMBULANCE' ? 'ambulance' : type === 'POLICE' ? 'local_police' : 'fire_truck'}
                 </span>
             </div>
+            ${isMoving ? `<div class="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border border-white rounded-full"></div>` : ''}
         </div>
     `;
     
     return L.divIcon({
         html: iconHtml,
-        className: 'custom-leaflet-icon',
+        className: 'custom-leaflet-icon tracking-icon-animated',
         iconSize: [40, 40],
         iconAnchor: [20, 20],
     });
@@ -50,6 +63,14 @@ const SetBounds = ({ markers }) => {
 const LiveMap = ({ markers = [], center = [5.6037, -0.1870], className = "" }) => {
     return (
         <div className={`relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 ${className}`}>
+            <style>
+                {`
+                /* Smoothly animate markers as they change positions */
+                .tracking-icon-animated {
+                    transition: transform 1.5s linear !important;
+                }
+                `}
+            </style>
             <MapContainer 
                 center={center} 
                 zoom={13} 
@@ -65,14 +86,14 @@ const LiveMap = ({ markers = [], center = [5.6037, -0.1870], className = "" }) =
                     <Marker 
                         key={marker.id || idx} 
                         position={[marker.lat, marker.lng]}
-                        icon={getIcon(marker.type || 'INCIDENT', marker.color || 'blue')}
+                        icon={getIcon(marker.type || 'INCIDENT', marker.color || 'blue', marker.status)}
                     >
                         <Popup className="custom-popup">
                             <div className="p-2 min-w-[150px]">
                                 <h4 className="font-bold text-sm mb-1">{marker.title}</h4>
                                 <p className="text-xs text-slate-500 mb-2">{marker.description}</p>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase text-white bg-${marker.color || 'blue'}-500`}>
+                                    <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase text-white ${marker.color === 'teal' ? 'bg-teal-500' : marker.color === 'rose' ? 'bg-rose-500' : marker.color === 'amber' ? 'bg-amber-500' : 'bg-blue-500'}`}>
                                         {marker.status || 'Active'}
                                     </span>
                                 </div>

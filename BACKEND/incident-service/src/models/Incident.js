@@ -1,7 +1,7 @@
 const prisma = require('../db');
 
 class Incident {
-    static async create(citizenName, citizenPhone, incidentType, latitude, longitude, locationDescription, notes, createdBy) {
+    static async create(citizenName, citizenPhone, incidentType, latitude, longitude, locationDescription, notes, createdBy, severity = 'MEDIUM') {
         try {
             const incident = await prisma.incident.create({
                 data: {
@@ -14,6 +14,7 @@ class Incident {
                     reporterName: citizenName,
                     reporterPhone: citizenPhone,
                     createdBy: createdBy || null,
+                    severity: severity,
                     status: 'CREATED',
                 },
             });
@@ -149,6 +150,22 @@ class Incident {
 
     static async assignResponder(incidentId, responderId, responderType) {
         try {
+            // First: Ensure the responder exists in the local incident-service DB 
+            // (Synchronizing with dispatch-service unit)
+            await prisma.responder.upsert({
+                where: { responderId: responderId },
+                update: { type: responderType },
+                create: {
+                    responderId: responderId,
+                    name: `Unit-${responderId.substring(0, 5)}`,
+                    email: `unit-${responderId}@emergency.gov.gh`,
+                    phone: '000-000-000',
+                    type: responderType,
+                    location: 'Unknown',
+                    isActive: true
+                }
+            });
+
             const incident = await prisma.incident.update({
                 where: { incidentId },
                 data: {
@@ -207,6 +224,49 @@ class Incident {
             console.error('❌ Resolve incident error:', err);
             if (err.code === 'P2025') return null;
             throw new Error(`Failed to resolve incident: ${err.message}`);
+        }
+    }
+    /**
+     * Update incident properties (admin power)
+     */
+    static async updateFull(incidentId, data) {
+        try {
+            const incident = await prisma.incident.update({
+                where: { incidentId },
+                data: {
+                    title: data.title,
+                    description: data.description,
+                    type: data.type,
+                    location: data.location,
+                    severity: data.severity,
+                    status: data.status,
+                    assignedResponderId: data.assigned_unit_id || data.assignedResponderId,
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                },
+            });
+
+            return incident;
+        } catch (err) {
+            console.error('❌ Update full incident error:', err);
+            if (err.code === 'P2025') return null;
+            throw new Error(`Failed to update incident: ${err.message}`);
+        }
+    }
+
+    /**
+     * Delete incident record (admin power)
+     */
+    static async delete(incidentId) {
+        try {
+            await prisma.incident.delete({
+                where: { incidentId },
+            });
+            return true;
+        } catch (err) {
+            console.error('❌ Delete incident error:', err);
+            if (err.code === 'P2025') return false;
+            throw new Error(`Failed to delete incident: ${err.message}`);
         }
     }
 }

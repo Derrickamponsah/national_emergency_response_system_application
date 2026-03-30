@@ -3,23 +3,40 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import LiveMap from '../shared/LiveMap';
+import DispatchNotification from '../shared/DispatchNotification';
+import AllDispatchedIncidents from '../shared/AllDispatchedIncidents';
+import LiveTrackingModal from '../shared/LiveTrackingModal';
 import { incidentService } from '../../services/incidentService';
 import { vehicleService } from '../../services/vehicleService';
 import { analyticsService } from '../../services/analyticsService';
 import { socketService } from '../../services/socketService';
+import { useDispatchNotification } from '../../hooks/useDispatchNotification';
+import { useDispatchHistory } from '../../contexts/DispatchHistoryContext';
 
 const SystemAdminDashboard = () => {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
+    const { notification, showNotification, hideNotification } = useDispatchNotification();
+    const { addDispatch, updateDispatchStatus } = useDispatchHistory();
     const [incidents, setIncidents] = useState([]);
     const [vehicles, setVehicles] = useState([]);
     const [stats, setStats] = useState([
-        { label: 'Total Incidents', value: '...', icon: 'shield_alert', color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20' },
+        { label: 'Total Incidents', value: '...', icon: 'emergency', color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20' },
         { label: 'Active Units', value: '...', icon: 'local_shipping', color: 'text-primary bg-blue-50 dark:bg-blue-900/20' },
         { label: 'Staff Online', value: '...', icon: 'group', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' },
         { label: 'System Uptime', value: '99.9%', icon: 'bolt', color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
     ]);
     const [loading, setLoading] = useState(true);
+    const [dispatchingId, setDispatchingId] = useState(null);
+    const [showVehicleModal, setShowVehicleModal] = useState(false);
+    const [selectedVehicle, setSelectedVehicle] = useState(null);
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [showLiveTracking, setShowLiveTracking] = useState(false);
+    const [trackingData, setTrackingData] = useState({
+        vehicle: null,
+        incident: null,
+        baseStation: null
+    });
 
     const fetchData = async () => {
         try {
@@ -62,23 +79,23 @@ const SystemAdminDashboard = () => {
     };
 
     const formatIncident = (inc) => ({
-        id: inc.id,
-        lat: parseFloat(inc.latitude),
-        lng: parseFloat(inc.longitude),
+        id: inc.incident_id || inc.id,
+        lat: parseFloat(inc.latitude || inc.lat) || 5.6037,
+        lng: parseFloat(inc.longitude || inc.lng) || -0.1870,
         type: 'INCIDENT',
-        title: inc.incident_type,
-        description: inc.location_description,
+        title: inc.incident_type || inc.title,
+        description: inc.location_description || inc.description,
         color: 'rose',
         status: inc.status
     });
 
     const formatVehicle = (veh) => ({
-        id: veh.id,
-        lat: parseFloat(veh.latitude),
-        lng: parseFloat(veh.longitude),
-        type: veh.type,
-        title: veh.registrationNumber,
-        description: `Driver: ${veh.driverName || 'N/A'}`,
+        id: veh.vehicle_id || veh.id,
+        lat: parseFloat(veh?.current_location?.latitude || veh.lat || veh.latitude) || 5.6037,
+        lng: parseFloat(veh?.current_location?.longitude || veh.lng || veh.longitude) || -0.1870,
+        type: veh.type || 'UNKNOWN',
+        title: veh.registration_number || veh.registrationNumber || veh.title || 'UNASSIGNED',
+        description: veh.driver_name || veh.driverName ? `Driver: ${veh.driver_name || veh.driverName}` : (veh.description || 'N/A'),
         color: 'primary',
         status: veh.status
     });
@@ -114,22 +131,131 @@ const SystemAdminDashboard = () => {
     const handleDispatch = async (incidentId) => {
         const availableVehicle = vehicles.find(v => v.status === 'IDLE' || v.status === 'PATROLLING');
         if (!availableVehicle) {
-            alert('No available units for prompt dispatch.');
+            showNotification({
+                status: 'FAILED',
+                message: 'No available units. Register vehicles and set them to IDLE.',
+                duration: 4000
+            });
             return;
         }
 
+        setDispatchingId(incidentId);
         try {
-            await incidentService.dispatchUnit(incidentId, availableVehicle.id);
+            await incidentService.dispatchUnit(incidentId, { 
+                unit_id: availableVehicle.id, 
+                unit_type: availableVehicle.type 
+            });
+            
+            const incidentDetails = incidents.find(i => i.id === incidentId);
+            const baseStationData = {
+                name: 'ACCRA-CENTRAL-01',
+                lat: 5.5391,
+                lng: -0.2265
+            };
+
+            // Add to dispatch history
+            addDispatch({
+                incidentId: incidentId,
+                incidentType: incidentDetails?.title || 'MEDICAL',
+                location: incidentDetails?.description || 'Target Location',
+                dispatchedVehicle: availableVehicle.title,
+                baseStation: baseStationData.name,
+                dispatchedAt: new Date(),
+                incidentLat: incidentDetails?.lat || 5.6037,
+                incidentLng: incidentDetails?.lng || -0.1870,
+                baseLat: baseStationData.lat,
+                baseLng: baseStationData.lng
+            });
+
+            // Show success notification
+            showNotification({
+                status: 'SUCCESS',
+                vehicleReg: availableVehicle.title,
+                baseStation: baseStationData.name,
+                location: incidentDetails?.description || 'Target Location',
+                incidentType: incidentDetails?.title || 'MEDICAL',
+                message: `${availableVehicle.title} dispatched successfully!`
+            });
+
+            // Open live tracking modal
+            setTrackingData({
+                vehicle: {
+                    title: availableVehicle.title,
+                    color: availableVehicle.color || 'primary',
+                    id: availableVehicle.id
+                },
+                incident: {
+                    title: incidentDetails?.title || 'Medical Emergency',
+                    description: incidentDetails?.description || 'Unknown Location',
+                    lat: incidentDetails?.lat || 5.6037,
+                    lng: incidentDetails?.lng || -0.1870
+                },
+                baseStation: baseStationData
+            });
+            setShowLiveTracking(true);
+            
             console.log(`Unit ${availableVehicle.title} Dispatched to ${incidentId}`);
+            
+            // Immediate state update
+            setIncidents(prev => prev.map(inc => 
+                inc.id === incidentId ? { ...inc, status: 'DISPATCHED' } : inc
+            ));
         } catch (error) {
             console.error('Dispatch failed:', error);
+            showNotification({
+                status: 'FAILED',
+                message: 'Dispatch failed. Please check your backend connection.',
+                duration: 4000
+            });
+        } finally {
+            setDispatchingId(null);
         }
     };
 
-    const mapMarkers = [...incidents, ...vehicles];
+    const handleUpdateVehicle = async (vehId, newStatus) => {
+        setUpdatingStatus(true);
+        try {
+            await vehicleService.update(vehId, { status: newStatus });
+            setVehicles(prev => prev.map(v => 
+                v.id === vehId ? { ...v, status: newStatus } : v
+            ));
+        } catch (error) {
+            console.error('Vehicle update failed:', error);
+            alert('Protocol update failed. Please verify nexus status.');
+        } finally {
+            setUpdatingStatus(false);
+            setShowVehicleModal(false);
+        }
+    };
+
+    const mapMarkers = [...incidents.filter(inc => inc.status !== 'RESOLVED'), ...vehicles];
 
     return (
         <div className="flex h-screen w-full bg-background-light dark:bg-background-dark overflow-hidden font-display transition-colors">
+            {/* Dispatch Notification */}
+            {notification && (
+                <DispatchNotification 
+                    isVisible={true}
+                    status={notification.status === 'SUCCESS' ? 'success' : 'failure'}
+                    message={notification.message}
+                    vehicleInfo={{
+                        reg: notification.vehicleReg,
+                        baseStation: notification.baseStation,
+                        location: notification.location
+                    }}
+                    onClose={hideNotification}
+                />
+            )}
+
+            {/* Live Tracking Modal */}
+            <LiveTrackingModal
+                isOpen={showLiveTracking}
+                onClose={() => setShowLiveTracking(false)}
+                vehicle={trackingData.vehicle}
+                incident={trackingData.incident}
+                baseStation={trackingData.baseStation}
+            />
+
             {/* Sidebar */}
             <aside className="w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col p-8 shadow-xl z-20">
                 <div className="flex items-center gap-4 mb-12 px-2 mt-4">
@@ -222,9 +348,9 @@ const SystemAdminDashboard = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                             key={i} 
-                            className="bg-white dark:bg-slate-900 p-10 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all relative group overflow-hidden border-b-4 border-b-transparent hover:border-b-primary"
+                            className="bg-white dark:bg-slate-900 p-10 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm transition-all relative overflow-hidden"
                         >
-                            <div className={`${stat.color} mb-8 w-16 h-16 rounded-[24px] flex items-center justify-center transition-transform group-hover:scale-110 group-hover:rotate-12 shadow-inner border border-white/10`}>
+                            <div className={`${stat.color} mb-8 w-16 h-16 rounded-[24px] flex items-center justify-center shadow-inner border border-white/10`}>
                                 <span className="material-symbols-outlined text-4xl">
                                     {stat.icon}
                                 </span>
@@ -251,45 +377,55 @@ const SystemAdminDashboard = () => {
                     </div>
                     
                     <div className="space-y-10">
-                        <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic underline decoration-emerald-500/40 decoration-4 underline-offset-8">Relay Health</h3>
+                        <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic underline decoration-blue-500/40 decoration-4 underline-offset-8">Fleet Operational Unit</h3>
                         <div className="bg-white dark:bg-slate-900 rounded-[64px] p-12 lg:p-14 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-full relative overflow-hidden group">
                            <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform">
-                                <span className="material-symbols-outlined text-[140px]">hub</span>
+                                <span className="material-symbols-outlined text-[140px]">local_shipping</span>
                            </div>
 
-                           <div className="space-y-12 relative z-10">
-                                {[
-                                    { label: 'Auth Sub-System', node: 'Node-Auth-01', health: '99.9%', color: 'emerald' },
-                                    { label: 'Incident Flow', node: 'Node-Inc-01', health: '99.8%', color: 'emerald' },
-                                    { label: 'Fleet Sync', node: 'Node-Veh-01', health: '100%', color: 'emerald' },
-                                    { label: 'Registry Arch', node: 'Node-Aud-01', health: '99.9%', color: 'emerald' },
-                                    { label: 'Dispatch Bus', node: 'Node-Dsp-01', health: '98.5%', color: 'amber' }
-                                ].map((service, i) => (
+                           <div className="space-y-12 relative z-10 custom-scrollbar max-h-[500px] overflow-y-auto pr-4">
+                                {vehicles.length === 0 ? (
+                                    <p className="text-slate-400 font-bold italic tracking-widest text-center py-10">Zero Units Registered</p>
+                                ) : vehicles.map((veh, i) => (
                                     <div key={i} className="flex items-center justify-between group/item">
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase italic">{service.label}</span>
-                                            <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest opacity-70 group-hover/item:text-primary transition-colors italic">{service.node}</span>
+                                            <span className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase italic">{veh.title}</span>
+                                            <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest opacity-70 italic">{(veh.type || 'UNKNOWN').replace('_', ' ')}</span>
                                         </div>
                                         <div className="flex items-center gap-6">
-                                            <div className="text-right hidden sm:block">
-                                                <p className={`text-[10px] font-black text-${service.color}-500 uppercase italic tracking-widest`}>Resilient</p>
-                                                <p className="text-[9px] text-slate-400 font-black mt-1 opacity-50 uppercase tracking-tighter">{service.health}</p>
-                                            </div>
-                                            <div className={`w-3.5 h-3.5 rounded-full bg-${service.color}-500 shadow-[0_0_15px_rgba(16,185,129,0.7)] animate-pulse`} />
+                                            <button 
+                                                onClick={() => { setSelectedVehicle(veh); setShowVehicleModal(true); }}
+                                                className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${
+                                                    veh.status === 'IDLE' ? 'border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 
+                                                    veh.status === 'DISPATCHED' ? 'border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white' :
+                                                    'border-slate-500/20 text-slate-500 hover:bg-slate-500 hover:text-white'
+                                                }`}
+                                            >
+                                                {veh.status}
+                                            </button>
+                                            <div className={`w-3.5 h-3.5 rounded-full ${veh.status === 'IDLE' ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.7)]' : 'bg-amber-500'} animate-pulse`} />
                                         </div>
                                     </div>
                                 ))}
                            </div>
 
                            <div className="mt-20 pt-12 border-t border-slate-100 dark:border-slate-800/80">
-                               <Link to="/audit-logs" className="w-full py-6 bg-slate-900 dark:bg-slate-800 text-white rounded-[32px] text-[10px] font-black tracking-[0.3em] text-slate-200 hover:text-white hover:bg-primary transition-all uppercase flex items-center justify-center gap-4 italic shadow-2xl shadow-primary/10">
-                                   <span className="material-symbols-outlined text-lg">history</span>
-                                   View Audit Registry
-                               </Link>
+                               <button 
+                                 onClick={() => navigate('/incidents')}
+                                 className="w-full py-6 bg-slate-900 dark:bg-slate-800 text-white rounded-[32px] text-[10px] font-black tracking-[0.3em] uppercase flex items-center justify-center gap-4 italic shadow-2xl hover:bg-primary transition-all"
+                               >
+                                   <span className="material-symbols-outlined text-lg">add_box</span>
+                                   Register New Unit
+                               </button>
                            </div>
                         </div>
                     </div>
                 </div>
+
+                {/* Dispatched Incidents History */}
+                <section className="px-4 mb-32 bg-white dark:bg-slate-900 p-12 rounded-[48px] border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <AllDispatchedIncidents adminRole={user?.role || 'SYSTEM_ADMIN'} />
+                </section>
 
                 {/* Active Dispatch Queue */}
                 <section className="px-4 mb-32">
@@ -326,10 +462,17 @@ const SystemAdminDashboard = () => {
 
                                 <button 
                                     onClick={() => handleDispatch(inc.id)}
-                                    className="w-full py-5 mt-auto bg-slate-900 dark:bg-slate-800 text-white rounded-[28px] text-[10px] font-black tracking-[0.3em] uppercase italic flex items-center justify-center gap-4 hover:bg-rose-500 transition-all shadow-2xl shadow-rose-500/10 active:scale-95"
+                                    disabled={dispatchingId === inc.id}
+                                    className={`w-full py-5 mt-auto rounded-[28px] text-[10px] font-black tracking-[0.3em] uppercase italic flex items-center justify-center gap-4 transition-all shadow-2xl active:scale-95 ${
+                                        dispatchingId === inc.id
+                                        ? 'bg-slate-400 cursor-not-allowed opacity-50'
+                                        : 'bg-slate-900 dark:bg-slate-800 text-white hover:bg-rose-500 shadow-rose-500/10'
+                                    }`}
                                 >
-                                    <span className="material-symbols-outlined text-xl">local_shipping</span>
-                                    Assign Protocol Unit
+                                    <span className={`material-symbols-outlined text-xl ${dispatchingId === inc.id ? 'animate-spin' : ''}`}>
+                                        {dispatchingId === inc.id ? 'sync' : 'local_shipping'}
+                                    </span>
+                                    {dispatchingId === inc.id ? 'Processing Protocol...' : 'Assign Protocol Unit'}
                                 </button>
                             </motion.div>
                         ))}

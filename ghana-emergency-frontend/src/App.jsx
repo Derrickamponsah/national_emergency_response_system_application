@@ -26,10 +26,14 @@ import AuditLogPage from './components/dashboards/AuditLogPage';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import NotificationOverlay from './components/shared/NotificationOverlay';
 
+// Contexts
+import { DispatchHistoryProvider } from './contexts/DispatchHistoryContext';
+
 function App() {
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display selection:bg-primary/20">
-        <NotificationOverlay />
+    <DispatchHistoryProvider>
+      <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display selection:bg-primary/20">
+          <NotificationOverlay />
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
@@ -123,7 +127,8 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-    </div>
+      </div>
+    </DispatchHistoryProvider>
   );
 }
 

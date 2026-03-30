@@ -2,11 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const prisma = require('./db');
 const { connectRabbitMQ } = require('./utils/rabbit');
+const { initSocketServer } = require('./utils/socket'); // Added socket
+const http = require('http'); // Added http
 require('dotenv').config();
 
 const incidentRoutes = require('./routes/incidents');
 
 const app = express();
+const httpServer = http.createServer(app); // Create HTTP Server
+initSocketServer(httpServer); // Initialize Socket.IO with it
 
 // ============================================
 // MIDDLEWARE
@@ -71,7 +75,8 @@ app.use((req, res) => {
 // START SERVER
 // ============================================
 const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
+// Start httpServer instead of express directly
+httpServer.listen(PORT, () => {
     console.log('\n╔════════════════════════════════════════╗');
     console.log('║   🚀 INCIDENT SERVICE STARTED          ║');
     console.log(`║   Port: ${PORT}                              ║`);

@@ -1,21 +1,60 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import StatusBadge from '../shared/StatusBadge';
+import { incidentService } from '../../services/incidentService';
+import { socketService } from '../../services/socketService';
 
 const IncidentList = () => {
-    // Mock data for initial rendering
-    const incidents = [
-        { id: '1', type: 'MEDICAL', status: 'DISPATCHED', location: 'Ind. Square, Accra', time: '5m ago', reporter: 'Sam' },
-        { id: '2', type: 'FIRE', status: 'IN_PROGRESS', location: 'Makola Market', time: '12m ago', reporter: 'Jane' },
-        { id: '3', type: 'CRIME', status: 'CREATED', location: 'Osu Oxford St.', time: '1m ago', reporter: 'Yaw' },
-        { id: '4', type: 'ACCIDENT', status: 'RESOLVED', location: 'Legon Bypass', time: '45m ago', reporter: 'Kofi' },
-    ];
+    const [incidents, setIncidents] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = async () => {
+        try {
+            const data = await incidentService.getAll();
+            setIncidents(data.map(inc => ({
+                id: inc.incident_id || inc.id,
+                type: inc.incident_type || inc.type,
+                status: inc.status,
+                location: inc.location_description || inc.location,
+                time: new Date(inc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                reporter: inc.reporter_name || 'Anonymous'
+            })));
+        } catch (error) {
+            console.error('Failed to fetch incidents:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+        socketService.subscribeToIncidents((update) => {
+            setIncidents(prev => {
+                const index = prev.findIndex(i => i.id === (update.incident_id || update.id));
+                const formatted = {
+                    id: update.incident_id || update.id,
+                    type: update.incident_type || update.type,
+                    status: update.status,
+                    location: update.location_description || update.location,
+                    time: 'Now',
+                    reporter: update.reporter_name || 'Anonymous'
+                };
+                if (index !== -1) {
+                    const next = [...prev];
+                    next[index] = formatted;
+                    return next;
+                }
+                return [formatted, ...prev];
+            });
+        });
+    }, []);
 
     const getIncidentIcon = (type) => {
         switch (type) {
             case 'FIRE': return 'local_fire_department';
             case 'MEDICAL': return 'medical_services';
             case 'CRIME': return 'policy';
+            case 'ROAD_ACCIDENT': return 'car_crash';
             case 'ACCIDENT': return 'car_crash';
             default: return 'report';
         }
@@ -26,10 +65,13 @@ const IncidentList = () => {
             case 'FIRE': return 'text-orange-500 bg-orange-50 dark:bg-orange-900/20';
             case 'MEDICAL': return 'text-blue-500 bg-blue-50 dark:bg-blue-900/20';
             case 'CRIME': return 'text-red-500 bg-red-50 dark:bg-red-900/20';
-            case 'ACCIDENT': return 'text-amber-500 bg-amber-50 dark:bg-amber-900/20';
+            case 'ACCIDENT': 
+            case 'ROAD_ACCIDENT': return 'text-amber-500 bg-amber-50 dark:bg-amber-900/20';
             default: return 'text-slate-500 bg-slate-50 dark:bg-slate-900/20';
         }
     };
+
+    if (loading) return <div className="py-20 text-center font-bold tracking-widest animate-pulse">SYNCING DATA NODES...</div>;
 
     return (
         <div className="flex flex-col h-full space-y-4">
@@ -47,7 +89,9 @@ const IncidentList = () => {
             </div>
 
             <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {incidents.map((incident, i) => (
+                {incidents.length === 0 ? (
+                    <div className="py-20 text-center text-slate-400 italic font-medium">No active incidents in queue.</div>
+                ) : incidents.map((incident, i) => (
                     <motion.div 
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -64,8 +108,8 @@ const IncidentList = () => {
                                 </div>
                                 <div className="space-y-0.5">
                                     <div className="flex items-center gap-2">
-                                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">{incident.type}</h4>
-                                        <span className="text-[10px] text-slate-400 font-medium">#{incident.id}</span>
+                                        <h4 className="font-bold text-sm text-slate-900 dark:text-white italic tracking-tight">{incident.type}</h4>
+                                        <span className="text-[10px] text-slate-400 font-medium">#{String(incident.id).substring(0,6)}</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-[11px] text-slate-500">
                                         <div className="flex items-center gap-1">
@@ -73,8 +117,8 @@ const IncidentList = () => {
                                             {incident.location}
                                         </div>
                                         <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-3 ml-1">
-                                            <span className="material-symbols-outlined text-[14px]">schedule</span>
-                                            {incident.time}
+                                            <span className="material-symbols-outlined text-[14px]">person</span>
+                                            {incident.reporter}
                                         </div>
                                     </div>
                                 </div>
@@ -82,9 +126,7 @@ const IncidentList = () => {
 
                             <div className="flex items-center gap-4">
                                 <StatusBadge status={incident.status} />
-                                <span className="material-symbols-outlined text-slate-300 dark:text-slate-700 group-hover:text-primary transition-colors">
-                                    chevron_right
-                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">{incident.time}</span>
                             </div>
                         </div>
                     </motion.div>

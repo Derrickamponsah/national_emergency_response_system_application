@@ -21,22 +21,29 @@ class IncidentController {
                 });
             }
 
+            // Normalize incident type to match Prisma Enum
+            let normalizedType = incident_type;
+            if (incident_type === 'ACCIDENT') normalizedType = 'ROAD_ACCIDENT';
+            if (incident_type === 'SECURITY' || incident_type === 'POLICE') normalizedType = 'CRIME';
+
             // Create incident
             const incident = await Incident.create(
                 citizen_name,
                 citizen_phone,
-                incident_type,
+                normalizedType,
                 latitude,
                 longitude,
                 location_description,
                 notes,
-                req.userId
+                req.userId,
+                req.body.severity || 'MEDIUM'
             );
 
             // Find nearest responder based on incident type
-            let responderType = incident_type === 'MEDICAL' ? 'HOSPITAL' :
-                incident_type === 'FIRE' ? 'FIRE_STATION' :
-                    incident_type === 'CRIME' ? 'POLICE_STATION' : null;
+            let responderType = normalizedType === 'MEDICAL' ? 'HOSPITAL' :
+                normalizedType === 'FIRE' ? 'FIRE_STATION' :
+                    normalizedType === 'CRIME' ? 'POLICE' : 
+                        normalizedType === 'ROAD_ACCIDENT' ? 'POLICE' : null;
 
             if (responderType) {
                 const responders = await Responder.getAvailableResponders(responderType);
@@ -71,6 +78,37 @@ class IncidentController {
 
             await publishEvent('incident.created', eventPayload);
 
+            // ============================================
+            // SOCKET.IO REAL-TIME BROADCAST TO FRONTEND
+            // ============================================
+            try {
+                const { getIO } = require('../utils/socket');
+                const { broadcastIncidentUpdate } = require('../utils/socketRoleHelper');
+                const io = getIO();
+                
+                // Format correctly for the frontend expecting standard incident shape
+                const incidentUpdate = {
+                    id: incident.incident_id,
+                    incident_id: incident.incident_id,
+                    type: incident.type,
+                    incident_type: incident.type,
+                    location_description: incident.location,
+                    location: incident.location,
+                    status: incident.status,
+                    latitude: incident.latitude,
+                    longitude: incident.longitude,
+                    // Extra frontend fields
+                    title: incident.title,
+                    description: incident.description,
+                    color: incident.type === 'FIRE' ? 'orange' : incident.type === 'MEDICAL' ? 'blue' : 'rose'
+                };
+                
+                // Use role-based broadcasting
+                broadcastIncidentUpdate(io, incidentUpdate);
+            } catch (socketErr) {
+                console.warn(`⚠️ Socket broadcast failed (often expected in testing if not initialized):`, socketErr.message);
+            }
+
             return res.status(201).json({
                 message: 'Incident created successfully',
                 incident: incident
@@ -97,6 +135,16 @@ class IncidentController {
                 });
             }
 
+            // Check role-based access
+            if (req.incidentTypeFilter && !req.incidentTypeFilter.includes(incident.type)) {
+                return res.status(403).json({
+                    error: 'Access denied - incident type not allowed for your role',
+                    code: 'FORBIDDEN',
+                    incident_type: incident.type,
+                    allowed_types: req.incidentTypeFilter
+                });
+            }
+
             return res.json(incident);
         } catch (err) {
             console.error('❌ Get incident error:', err);
@@ -110,11 +158,37 @@ class IncidentController {
     static async getOpenIncidents(req, res) {
         try {
             const { limit = 50, offset = 0, type } = req.query;
-            const incidents = await Incident.getOpenIncidents(parseInt(limit), parseInt(offset), type);
+            
+            // Determine which incident types to fetch based on role
+            let queryType = type;
+            if (req.incidentTypeFilter) {
+                // If role has restrictions, use them
+                if (type && !req.incidentTypeFilter.includes(type)) {
+                    // User requested a type outside their allowed types
+                    return res.json({
+                        incidents: [],
+                        count: 0,
+                        limit: parseInt(limit),
+                        offset: parseInt(offset),
+                        filtered: true,
+                        reason: `Type '${type}' not allowed for role`
+                    });
+                }
+                // If no specific type requested, fetch from allowed types
+                queryType = req.incidentTypeFilter.length === 1 ? req.incidentTypeFilter[0] : null;
+            }
+            
+            const incidents = await Incident.getOpenIncidents(parseInt(limit), parseInt(offset), queryType);
+            
+            // Additional filter if multiple types allowed (for Police)
+            let filteredIncidents = incidents;
+            if (req.incidentTypeFilter && Array.isArray(req.incidentTypeFilter) && req.incidentTypeFilter.length > 1) {
+                filteredIncidents = incidents.filter(inc => req.incidentTypeFilter.includes(inc.type));
+            }
 
             return res.json({
-                incidents: incidents,
-                count: incidents.length,
+                incidents: filteredIncidents,
+                count: filteredIncidents.length,
                 limit: parseInt(limit),
                 offset: parseInt(offset)
             });
@@ -194,6 +268,54 @@ class IncidentController {
             return res.status(500).json({
                 error: 'Failed to assign responder',
                 code: 'ASSIGN_ERROR'
+            });
+        }
+    }
+    static async deleteIncident(req, res) {
+        try {
+            const { id } = req.params;
+            const success = await Incident.delete(id);
+
+            if (!success) {
+                return res.status(404).json({
+                    error: 'Incident not found',
+                    code: 'NOT_FOUND'
+                });
+            }
+
+            return res.json({
+                message: 'Incident deleted successfully'
+            });
+        } catch (err) {
+            console.error('❌ Delete incident error:', err);
+            return res.status(500).json({
+                error: 'Failed to delete incident',
+                code: 'DELETE_ERROR'
+            });
+        }
+    }
+
+    static async updateIncident(req, res) {
+        try {
+            const { id } = req.params;
+            const updated = await Incident.updateFull(id, req.body);
+
+            if (!updated) {
+                return res.status(404).json({
+                    error: 'Incident not found',
+                    code: 'NOT_FOUND'
+                });
+            }
+
+            return res.json({
+                message: 'Incident updated successfully',
+                incident: updated
+            });
+        } catch (err) {
+            console.error('❌ Update incident error:', err);
+            return res.status(500).json({
+                error: 'Failed to update incident',
+                code: 'UPDATE_ERROR'
             });
         }
     }

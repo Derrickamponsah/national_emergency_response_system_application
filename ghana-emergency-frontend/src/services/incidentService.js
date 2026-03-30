@@ -3,8 +3,8 @@ import api, { SERVICES } from './api';
 export const incidentService = {
     // Get all incidents (with optional filters)
     getAll: async (params = {}) => {
-        const response = await api.get('/incidents', { params });
-        return response.data;
+        const response = await api.get('/incidents/open', { params });
+        return response.data.incidents || [];
     },
 
     // Get a specific incident
@@ -21,19 +21,25 @@ export const incidentService = {
 
     // Update incident status
     updateStatus: async (id, status) => {
-        const response = await api.patch(`/incidents/${id}/status`, { status });
+        const response = await api.put(`/incidents/${id}/status`, { status });
         return response.data;
     },
 
-    // Get open incidents specifically
-    getOpen: async () => {
-        const response = await api.get('/incidents/open');
+    // Full Update of an incident (Administrator Power)
+    update: async (id, data) => {
+        const response = await api.put(`/incidents/${id}`, data);
         return response.data;
     },
 
     // Dispatch a unit to an incident
-    dispatchUnit: async (incidentId, vehicleId) => {
-        const response = await api.post(`/incidents/${incidentId}/dispatch`, { vehicleId });
+    dispatchUnit: async (incidentId, unitData) => {
+        const response = await api.put(`/incidents/${incidentId}/assign`, unitData);
+        return response.data;
+    },
+
+    // Delete an incident (Administrator Power)
+    delete: async (id) => {
+        const response = await api.delete(`/incidents/${id}`);
         return response.data;
     }
 };

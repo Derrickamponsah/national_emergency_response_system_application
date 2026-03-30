@@ -124,10 +124,10 @@ const AnalyticsDashboard = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                             key={i} 
-                            className="bg-white dark:bg-slate-900 p-10 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all relative group overflow-hidden"
+                            className="bg-white dark:bg-slate-900 p-10 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm transition-all relative overflow-hidden"
                         >
                             <div className="flex justify-between items-center mb-8">
-                                <div className={`w-16 h-16 rounded-[24px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center ${stat.color} transition-transform group-hover:scale-110 group-hover:rotate-12`}>
+                                <div className={`w-16 h-16 rounded-[24px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center ${stat.color} shadow-inner border border-white/10`}>
                                     <span className="material-symbols-outlined text-4xl font-black">
                                         {stat.icon}
                                     </span>

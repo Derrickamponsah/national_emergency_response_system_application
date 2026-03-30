@@ -4,7 +4,7 @@ require('dotenv').config();
 class VehicleController {
     static async registerVehicle(req, res) {
         try {
-            const { registrationNumber, type, region, capacity, driverName, driverPhone } = req.body;
+            const { registrationNumber, type, region, capacity, driverName, driverPhone, latitude, longitude } = req.body;
 
             if (!registrationNumber || !type) {
                 return res.status(400).json({
@@ -19,7 +19,9 @@ class VehicleController {
                 region,
                 capacity,
                 driverName,
-                driverPhone
+                driverPhone,
+                latitude,
+                longitude
             });
 
             console.log(`✅ Vehicle registered successfully`);
@@ -68,9 +70,17 @@ class VehicleController {
             const { status } = req.query;
             const vehicles = await Vehicle.getAllVehicles(status);
 
+            // Apply role-based vehicle type filtering
+            let filteredVehicles = vehicles;
+            if (req.vehicleTypeFilter) {
+                filteredVehicles = vehicles.filter(v => v.type === req.vehicleTypeFilter);
+            }
+
             return res.json({
-                vehicles: vehicles,
-                count: vehicles.length
+                vehicles: filteredVehicles,
+                count: filteredVehicles.length,
+                filtered: !!req.vehicleTypeFilter,
+                filter_type: req.vehicleTypeFilter || null
             });
         } catch (err) {
             console.error('❌ Get vehicles error:', err);
@@ -90,6 +100,16 @@ class VehicleController {
                 return res.status(404).json({
                     error: 'Vehicle not found',
                     code: 'NOT_FOUND'
+                });
+            }
+
+            // Check role-based vehicle access
+            if (req.vehicleTypeFilter && vehicle.type !== req.vehicleTypeFilter) {
+                return res.status(403).json({
+                    error: 'Access denied - vehicle type not allowed for your role',
+                    code: 'FORBIDDEN',
+                    vehicle_type: vehicle.type,
+                    allowed_type: req.vehicleTypeFilter
                 });
             }
 
@@ -113,6 +133,25 @@ class VehicleController {
             const { id } = req.params;
             const { limit = 100 } = req.query;
 
+            // First fetch vehicle to check role-based access
+            const vehicle = await Vehicle.findById(id);
+            if (!vehicle) {
+                return res.status(404).json({
+                    error: 'Vehicle not found',
+                    code: 'NOT_FOUND'
+                });
+            }
+
+            // Check role-based vehicle access
+            if (req.vehicleTypeFilter && vehicle.type !== req.vehicleTypeFilter) {
+                return res.status(403).json({
+                    error: 'Access denied - vehicle type not allowed for your role',
+                    code: 'FORBIDDEN',
+                    vehicle_type: vehicle.type,
+                    allowed_type: req.vehicleTypeFilter
+                });
+            }
+
             const history = await Vehicle.getLocationHistory(id, parseInt(limit));
 
             return res.json({
@@ -125,6 +164,63 @@ class VehicleController {
             return res.status(500).json({
                 error: 'Failed to fetch location history',
                 code: 'FETCH_ERROR'
+            });
+        }
+    }
+
+    /**
+     * Update vehicle details (admin)
+     */
+    static async updateVehicle(req, res) {
+        try {
+            const { id } = req.params;
+            const updateData = req.body;
+
+            const success = await Vehicle.update(id, updateData);
+
+            if (!success) {
+                return res.status(404).json({
+                    error: 'Vehicle not found or update failed',
+                    code: 'UPDATE_FAILED'
+                });
+            }
+
+            return res.json({
+                message: 'Vehicle updated successfully'
+            });
+        } catch (err) {
+            console.error('❌ Update vehicle error:', err);
+            return res.status(500).json({
+                error: 'Failed to update vehicle',
+                code: 'UPDATE_ERROR'
+            });
+        }
+    }
+
+    /**
+     * Delete vehicle (admin)
+     */
+    static async deleteVehicle(req, res) {
+        try {
+            const { id } = req.params;
+
+            const success = await Vehicle.delete(id);
+
+            if (!success) {
+                return res.status(404).json({
+                    error: 'Vehicle not found or delete failed',
+                    code: 'DELETE_FAILED'
+                });
+            }
+
+            return res.json({
+                message: 'Vehicle deleted successfully'
+            });
+        } catch (err) {
+            console.error('❌ Delete vehicle error:', err);
+            return res.status(500).json({
+                error: 'Failed to delete vehicle',
+                code: 'DELETE_ERROR'
             });
         }
     }

@@ -17,8 +17,8 @@ class Vehicle {
                     driverName: data.driverName || 'Unassigned',
                     driverPhone: data.driverPhone || 'N/A',
                     status: 'IDLE',
-                    currentLatitude: 0.0,
-                    currentLongitude: 0.0,
+                    currentLatitude: data.latitude !== undefined ? parseFloat(data.latitude) : 0.0,
+                    currentLongitude: data.longitude !== undefined ? parseFloat(data.longitude) : 0.0,
                     fuelLevel: 100,
                     isActive: true
                 },
@@ -222,6 +222,55 @@ class Vehicle {
         } catch (err) {
             console.error('❌ Assign incident error:', err);
             throw new Error(`Failed to assign incident: ${err.message}`);
+        }
+    }
+    /**
+     * Update vehicle details (admin)
+     */
+    static async update(vehicle_id, data) {
+        try {
+            const prisma = getDB();
+
+            const vehicle = await prisma.vehicle.update({
+                where: { vehicleId: vehicle_id },
+                data: {
+                    registrationNumber: data.registrationNumber,
+                    type: data.type,
+                    region: data.region,
+                    capacity: data.capacity,
+                    driverName: data.driverName,
+                    driverPhone: data.driverPhone,
+                    status: data.status,
+                    isActive: data.isActive !== undefined ? data.isActive : true,
+                    ...(data.latitude !== undefined && { currentLatitude: parseFloat(data.latitude) }),
+                    ...(data.longitude !== undefined && { currentLongitude: parseFloat(data.longitude) })
+                },
+            });
+
+            return !!vehicle;
+        } catch (err) {
+            console.error('❌ Update vehicle error:', err);
+            if (err.code === 'P2025') return false;
+            throw new Error(`Failed to update vehicle: ${err.message}`);
+        }
+    }
+
+    /**
+     * Delete vehicle (admin)
+     */
+    static async delete(vehicle_id) {
+        try {
+            const prisma = getDB();
+
+            await prisma.vehicle.delete({
+                where: { vehicleId: vehicle_id },
+            });
+
+            return true;
+        } catch (err) {
+            console.error('❌ Delete vehicle error:', err);
+            if (err.code === 'P2025') return false;
+            throw new Error(`Failed to delete vehicle: ${err.message}`);
         }
     }
 }
