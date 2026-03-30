@@ -6,9 +6,9 @@ services:
   # 1. Auth Service
   - type: web
     name: emergency-auth-service
-    env: docker
+    runtime: docker
     dockerContext: BACKEND/auth-service
-    dockerFilePath: BACKEND/auth-service/Dockerfile
+    dockerfilePath: BACKEND/auth-service/Dockerfile
     plan: free
     region: oregon 
     envVars:
@@ -26,9 +26,9 @@ services:
   # 2. Incident Service
   - type: web
     name: emergency-incident-service
-    env: docker
+    runtime: docker
     dockerContext: BACKEND/incident-service
-    dockerFilePath: BACKEND/incident-service/Dockerfile
+    dockerfilePath: BACKEND/incident-service/Dockerfile
     plan: free
     envVars:
       - key: DATABASE_URL
@@ -56,9 +56,9 @@ services:
   # 3. Dispatch Service
   - type: web
     name: emergency-dispatch-service
-    env: docker
+    runtime: docker
     dockerContext: BACKEND/dispatch-service
-    dockerFilePath: BACKEND/dispatch-service/Dockerfile
+    dockerfilePath: BACKEND/dispatch-service/Dockerfile
     plan: free
     envVars:
       - key: DATABASE_URL
@@ -85,9 +85,9 @@ services:
   # 4. Analytics Service
   - type: web
     name: emergency-analytics-service
-    env: docker
+    runtime: docker
     dockerContext: BACKEND/analytics-service
-    dockerFilePath: BACKEND/analytics-service/Dockerfile
+    dockerfilePath: BACKEND/analytics-service/Dockerfile
     plan: free
     envVars:
       - key: DATABASE_URL
