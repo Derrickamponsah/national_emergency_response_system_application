@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 3004
 
 # Start the application
-CMD ["sh", "-c", "npx prisma db push && npm start"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm start"]
