@@ -159,7 +159,10 @@ const Login = () => {
 
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
-                                    <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1">
+                                    <label 
+                                        htmlFor="email"
+                                        className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1"
+                                    >
                                         Email Address
                                     </label>
                                     <div className="relative group">
@@ -169,8 +172,10 @@ const Login = () => {
                                             </span>
                                         </div>
                                         <input
+                                            id="email"
                                             type="email"
                                             name="email"
+                                            autoComplete="email"
                                             value={formData.email}
                                             onChange={handleChange}
                                             className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.email
@@ -190,7 +195,10 @@ const Login = () => {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1">
+                                    <label 
+                                        htmlFor="password"
+                                        className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1"
+                                    >
                                         Security Credentials
                                     </label>
                                     <div className="relative group">
@@ -200,8 +208,10 @@ const Login = () => {
                                             </span>
                                         </div>
                                         <input
+                                            id="password"
                                             type="password"
                                             name="password"
+                                            autoComplete="current-password"
                                             value={formData.password}
                                             onChange={handleChange}
                                             className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.password
