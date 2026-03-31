@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,7 +10,7 @@ const Login = () => {
     const [formData, setFormData] = useState({
         email: '',
         password: '',
-        rememberMe: false
+        rememberMe: false,
     });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
@@ -22,35 +22,22 @@ const Login = () => {
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
-        }
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
         setApiError('');
     };
 
     const validateForm = () => {
         const newErrors = {};
-
-        if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Invalid email format';
-        }
-
-        if (!formData.password) {
-            newErrors.password = 'Password is required';
-        }
-
+        if (!formData.email.trim()) newErrors.email = 'Email is required';
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
+        if (!formData.password) newErrors.password = 'Password is required';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (!validateForm()) {
-            return;
-        }
+        if (!validateForm()) return;
 
         setLoading(true);
         setApiError('');
@@ -58,36 +45,37 @@ const Login = () => {
         try {
             const response = await axios.post(`${SERVICES.AUTH}/auth/login`, {
                 email: formData.email,
-                password: formData.password
+                password: formData.password,
             });
 
-            const { access_token, user: userData } = response.data;
-            
-            // Manual storage as requested
-            localStorage.setItem('token', access_token);
-            
+            const { access_token, user } = response.data;
+
+            // ✅ FIX: Store token reliably
+            if (!access_token) throw new Error('No token received from server');
+            localStorage.setItem('token', access_token); // now guaranteed
+
             // Update global auth context
-            login(access_token, userData.role, userData);
+            login(access_token, user.role, user);
 
-
+            // Remember email if requested
             if (formData.rememberMe) {
                 localStorage.setItem('remembered_email', formData.email);
             } else {
                 localStorage.removeItem('remembered_email');
             }
 
+            // Redirect based on role
             const roleRoutes = {
                 SYSTEM_ADMIN: '/',
                 HOSPITAL_ADMIN: '/hospital',
                 POLICE_ADMIN: '/police',
-                FIRE_ADMIN: '/fire'
+                FIRE_ADMIN: '/fire',
             };
 
-            navigate(roleRoutes[response.data.user.role] || '/');
+            navigate(roleRoutes[user.role] || '/');
 
         } catch (error) {
             console.error('Login error:', error);
-
             if (error.response) {
                 setApiError(error.response.data.error || error.response.data.message || 'Login failed');
             } else if (error.request) {
@@ -100,7 +88,8 @@ const Login = () => {
         }
     };
 
-    React.useEffect(() => {
+    // ✅ Pre-fill remembered email
+    useEffect(() => {
         const rememberedEmail = localStorage.getItem('remembered_email');
         if (rememberedEmail) {
             setFormData(prev => ({ ...prev, email: rememberedEmail, rememberMe: true }));
@@ -118,7 +107,7 @@ const Login = () => {
                         </div>
                         <div>
                             <h1 className="text-primary dark:text-slate-100 text-xl font-black uppercase tracking-tight">
-                                GovResponse
+                                Ghana Emergency Response System
                             </h1>
                             <p className="text-[10px] font-bold text-primary/60 dark:text-primary/40 leading-none">
                                 Emergency Management Division
@@ -185,8 +174,8 @@ const Login = () => {
                                             value={formData.email}
                                             onChange={handleChange}
                                             className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.email
-                                                    ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                                                    : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'
+                                                ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
+                                                : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'
                                                 } rounded-lg focus:ring-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all outline-none`}
                                             placeholder="name@ghana911.gov.gh"
                                             disabled={loading}
@@ -216,8 +205,8 @@ const Login = () => {
                                             value={formData.password}
                                             onChange={handleChange}
                                             className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.password
-                                                    ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                                                    : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'
+                                                ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
+                                                : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'
                                                 } rounded-lg focus:ring-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all outline-none`}
                                             placeholder="Enter account password"
                                             disabled={loading}
