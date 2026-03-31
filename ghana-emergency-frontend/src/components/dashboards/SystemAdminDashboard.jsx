@@ -6,6 +6,7 @@ import LiveMap from '../shared/LiveMap';
 import DispatchNotification from '../shared/DispatchNotification';
 import AllDispatchedIncidents from '../shared/AllDispatchedIncidents';
 import LiveTrackingModal from '../shared/LiveTrackingModal';
+import ManageVehicleModal from '../shared/ManageVehicleModal';
 import { incidentService } from '../../services/incidentService';
 import { vehicleService } from '../../services/vehicleService';
 import { analyticsService } from '../../services/analyticsService';
@@ -28,6 +29,9 @@ const SystemAdminDashboard = () => {
     ]);
     const [loading, setLoading] = useState(true);
     const [dispatchingId, setDispatchingId] = useState(null);
+    const [showVehicleModal, setShowVehicleModal] = useState(false);
+    const [selectedVehicleType, setSelectedVehicleType] = useState(null);
+    const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [showVehicleModal, setShowVehicleModal] = useState(false);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -410,13 +414,30 @@ const SystemAdminDashboard = () => {
                            </div>
 
                            <div className="mt-20 pt-12 border-t border-slate-100 dark:border-slate-800/80">
-                               <button 
-                                 onClick={() => navigate('/incidents')}
-                                 className="w-full py-6 bg-slate-900 dark:bg-slate-800 text-white rounded-[32px] text-[10px] font-black tracking-[0.3em] uppercase flex items-center justify-center gap-4 italic shadow-2xl hover:bg-primary transition-all"
-                               >
-                                   <span className="material-symbols-outlined text-lg">add_box</span>
-                                   Register New Unit
-                               </button>
+                               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 italic">Register Emergency Assets</p>
+                               <div className="grid grid-cols-3 gap-3">
+                                   <button 
+                                     onClick={() => { setSelectedVehicleType('AMBULANCE'); setSelectedVehicle(null); setShowVehicleModal(true); }}
+                                     className="py-4 bg-medical-main/10 hover:bg-medical-main text-medical-main hover:text-white rounded-[20px] text-[9px] font-black tracking-[0.15em] uppercase flex flex-col items-center justify-center gap-2 italic shadow-lg hover:shadow-xl transition-all border border-medical-main/20 hover:border-medical-main"
+                                   >
+                                       <span className="material-symbols-outlined text-2xl">ambulance</span>
+                                       <span>Ambulance</span>
+                                   </button>
+                                   <button 
+                                     onClick={() => { setSelectedVehicleType('POLICE'); setSelectedVehicle(null); setShowVehicleModal(true); }}
+                                     className="py-4 bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white rounded-[20px] text-[9px] font-black tracking-[0.15em] uppercase flex flex-col items-center justify-center gap-2 italic shadow-lg hover:shadow-xl transition-all border border-blue-500/20 hover:border-blue-500"
+                                   >
+                                       <span className="material-symbols-outlined text-2xl">local_police</span>
+                                       <span>Police</span>
+                                   </button>
+                                   <button 
+                                     onClick={() => { setSelectedVehicleType('FIRE_TRUCK'); setSelectedVehicle(null); setShowVehicleModal(true); }}
+                                     className="py-4 bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white rounded-[20px] text-[9px] font-black tracking-[0.15em] uppercase flex flex-col items-center justify-center gap-2 italic shadow-lg hover:shadow-xl transition-all border border-orange-500/20 hover:border-orange-500"
+                                   >
+                                       <span className="material-symbols-outlined text-2xl">fire_truck</span>
+                                       <span>Fire Truck</span>
+                                   </button>
+                               </div>
                            </div>
                         </div>
                     </div>
@@ -501,6 +522,19 @@ const SystemAdminDashboard = () => {
                     </div>
                 </footer>
             </main>
+            </main>
+
+            {/* Vehicle Registration Modal */}
+            <ManageVehicleModal 
+                isOpen={showVehicleModal} 
+                onClose={() => setShowVehicleModal(false)} 
+                vehicle={selectedVehicle} 
+                fixedType={selectedVehicleType}
+                onRefresh={() => {
+                    fetchData();
+                    setShowVehicleModal(false);
+                }}
+            />
         </div>
     );
 };
