@@ -1,11 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { socketService } from '../services/socketService';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    // ✅ Lazy initializers run synchronously on first render — token is
-    // never null when ProtectedRoute first checks it, so no redirect flash
+    // Lazy initialisers — synchronous on first render so ProtectedRoute
+    // never sees null when it checks token on the very first paint
     const [token, setToken] = useState(() => localStorage.getItem('token'));
     const [role, setRole] = useState(() => localStorage.getItem('user_role'));
     const [user, setUser] = useState(() => {
@@ -20,21 +20,36 @@ export const AuthProvider = ({ children }) => {
     });
     const [loading, setLoading] = useState(true);
 
+    // Stable navigate ref — set by the root router component via setNavigate()
+    // so we can navigate without a hard reload from outside React components
+    const navigateRef = useRef(null);
+    const setNavigate = (fn) => { navigateRef.current = fn; };
+
     useEffect(() => {
-        // Socket reconnect on page reload
+        // Reconnect socket on page reload if a token already exists
         const storedToken = localStorage.getItem('token');
-        if (storedToken) {
-            try {
-                socketService.connect(storedToken);
-            } catch (error) {
-                console.error('Socket connect failed:', error);
+        if (storedToken && !socketService.isConnected()) {
+            try { socketService.connect(storedToken); } catch (e) {
+                console.error('Socket reconnect failed:', e);
             }
         }
-        // ✅ loading=false AFTER state already hydrated — no race condition
         setLoading(false);
 
-        return () => socketService.disconnect();
+        // Listen for the custom event dispatched by api.js on 401
+        // This avoids window.location.href (hard reload) entirely
+        const handleForceLogout = () => _performLogout(false);
+        window.addEventListener('auth:logout', handleForceLogout);
+        return () => {
+            window.removeEventListener('auth:logout', handleForceLogout);
+            socketService.disconnect();
+        };
     }, []);
+
+    const _writeStorage = (accessToken, userRole, userData) => {
+        localStorage.setItem('token', accessToken);
+        localStorage.setItem('user_role', userRole);
+        localStorage.setItem('user_data', JSON.stringify(userData));
+    };
 
     const _clearStorage = () => {
         localStorage.removeItem('token');
@@ -42,23 +57,34 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user_data');
     };
 
+    // login() is the single place that writes storage AND syncs React state.
+    // Login.jsx must NOT write to localStorage itself — call this instead.
     const login = (accessToken, userRole, userData) => {
-        // Storage is already written by Login.jsx before calling this
-        // Just sync React state
+        _writeStorage(accessToken, userRole, userData);
         setToken(accessToken);
         setRole(userRole);
         setUser(userData);
-        socketService.connect(accessToken);
+        // Guard against double-connect (page-load reconnect may have run first)
+        if (!socketService.isConnected()) {
+            socketService.connect(accessToken);
+        }
     };
 
-    const logout = () => {
+    const _performLogout = (navigate = true) => {
         _clearStorage();
         setToken(null);
         setRole(null);
         setUser(null);
         socketService.disconnect();
-        window.location.href = '/login';
+        if (navigate && navigateRef.current) {
+            navigateRef.current('/login', { replace: true });
+        } else if (navigate) {
+            // Fallback only if navigate ref not yet registered
+            window.location.replace('/login');
+        }
     };
+
+    const logout = () => _performLogout(true);
 
     return (
         <AuthContext.Provider value={{
@@ -68,7 +94,8 @@ export const AuthProvider = ({ children }) => {
             loading,
             login,
             logout,
-            isAuthenticated: !!token && !!user, // ✅ Exposed so Login.jsx redirect works
+            setNavigate,
+            isAuthenticated: !!token && !!user,
         }}>
             {children}
         </AuthContext.Provider>
@@ -77,8 +104,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
+    if (!context) throw new Error('useAuth must be used within an AuthProvider');
     return context;
 };

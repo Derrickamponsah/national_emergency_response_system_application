@@ -8,49 +8,58 @@ export const SERVICES = {
 };
 
 const api = axios.create({
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor: attach token
+// ─── Request interceptor: attach token + resolve service URL ─────────────────
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-        // Prepend service URLs
+
+        // Only rewrite relative URLs — absolute URLs (e.g. from Login.jsx using
+        // axios directly) are passed through unchanged
         if (!config.url.startsWith('http')) {
-            if (config.url.startsWith('/dispatch')) {
+            if (config.url.startsWith('/auth')) {
+                // Keep /auth prefix — backend expects /auth/login etc.
+                config.url = `${SERVICES.AUTH}${config.url}`;
+            } else if (config.url.startsWith('/dispatch')) {
+                // Strip /dispatch prefix — backend route is just /units etc.
                 config.url = `${SERVICES.DISPATCH}${config.url.replace('/dispatch', '')}`;
             } else if (config.url.startsWith('/analytics')) {
                 config.url = `${SERVICES.ANALYTICS}${config.url.replace('/analytics', '')}`;
-            } else if (config.url.startsWith('/auth')) {
-                config.url = `${SERVICES.AUTH}${config.url}`;
             } else {
+                // Default → incident service
                 config.url = `${SERVICES.INCIDENT}${config.url}`;
             }
         }
+
         return config;
     },
     (error) => Promise.reject(error)
 );
 
-// Response interceptor: logout only if token exists
+// ─── Response interceptor: only 401 means expired/invalid token ──────────────
 api.interceptors.response.use(
     (response) => response,
     (error) => {
         const status = error.response?.status;
         const token = localStorage.getItem('token');
 
-        if ((status === 401 || status === 403) && token) {
-            // Token exists but server rejects it (invalid/expired)
+        if (status === 401 && token) {
+            // Token is present but server rejects it → it has expired or been revoked.
+            // Clear storage then fire a custom event so AuthContext can call
+            // navigate('/login') without a hard page reload.
             localStorage.removeItem('token');
             localStorage.removeItem('user_role');
             localStorage.removeItem('user_data');
-            window.location.href = '/login';
+            window.dispatchEvent(new Event('auth:logout'));
         }
+
+        // 403 = authenticated but NOT authorised for this resource.
+        // Do NOT log the user out — just let the calling component handle it.
 
         return Promise.reject(error);
     }
