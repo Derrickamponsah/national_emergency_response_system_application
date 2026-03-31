@@ -249,7 +249,13 @@ class IncidentController {
                 });
             }
 
-            const incident = await Incident.assignResponder(id, unit_id, unit_type);
+            // Map Dispatch vehicle types to Incident responder types for Prisma enum compatibility
+            let mappedType = unit_type;
+            if (unit_type === 'AMBULANCE') mappedType = 'HOSPITAL';
+            if (unit_type === 'FIRE_TRUCK') mappedType = 'FIRE_STATION';
+            if (unit_type === 'POLICE_CAR') mappedType = 'POLICE';
+
+            const incident = await Incident.assignResponder(id, unit_id, mappedType);
 
             if (!incident) {
                 return res.status(404).json({

@@ -61,8 +61,23 @@ const Login = () => {
                 password: formData.password
             });
 
+            const { access_token, user: userData } = response.data;
+            
+            api.interceptors.request.use(
+                (config) => {
+                    const token = localStorage.getItem('token');
+                    if (token) {
+                        config.headers.Authorization = `Bearer ${token}`;
+                    }
+                    return config;
+                }
+            );
+            
+            // Manual storage as requested
+            localStorage.setItem('token', access_token);
+            
             // Update global auth context
-            login(response.data.access_token, response.data.user.role, response.data.user);
+            login(access_token, userData.role, userData);
 
             if (formData.rememberMe) {
                 localStorage.setItem('remembered_email', formData.email);
