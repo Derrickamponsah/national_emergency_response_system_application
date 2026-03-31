@@ -4,40 +4,34 @@ import { socketService } from '../services/socketService';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
-    const [role, setRole] = useState(null);
+    // ✅ Lazy initializers run synchronously on first render — token is
+    // never null when ProtectedRoute first checks it, so no redirect flash
+    const [token, setToken] = useState(() => localStorage.getItem('token'));
+    const [role, setRole] = useState(() => localStorage.getItem('user_role'));
+    const [user, setUser] = useState(() => {
+        const stored = localStorage.getItem('user_data');
+        const storedRole = localStorage.getItem('user_role');
+        if (!stored && !storedRole) return null;
+        try {
+            return stored ? JSON.parse(stored) : { role: storedRole };
+        } catch {
+            return null;
+        }
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const verifySession = () => {
-            const storedToken = localStorage.getItem('token');
-            const storedRole = localStorage.getItem('user_role');
-            const storedUserData = localStorage.getItem('user_data');
-
-            if (storedToken && storedRole) {
-                try {
-                    const parsedUser = storedUserData
-                        ? JSON.parse(storedUserData)
-                        : { role: storedRole };
-
-                    setToken(storedToken);
-                    setRole(storedRole);
-                    setUser(parsedUser);
-
-                    // Reconnect socket on page reload
-                    socketService.connect(storedToken);
-                } catch (error) {
-                    // Corrupted storage — clear and start fresh
-                    console.error('Session restore failed:', error);
-                    _clearStorage();
-                }
+        // Socket reconnect on page reload
+        const storedToken = localStorage.getItem('token');
+        if (storedToken) {
+            try {
+                socketService.connect(storedToken);
+            } catch (error) {
+                console.error('Socket connect failed:', error);
             }
-
-            setLoading(false);
-        };
-
-        verifySession();
+        }
+        // ✅ loading=false AFTER state already hydrated — no race condition
+        setLoading(false);
 
         return () => socketService.disconnect();
     }, []);
