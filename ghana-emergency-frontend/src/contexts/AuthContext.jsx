@@ -5,13 +5,13 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('access_token'));
+    const [token, setToken] = useState(localStorage.getItem('token'));
     const [role, setRole] = useState(localStorage.getItem('user_role'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const verifySession = async () => {
-            const storedToken = localStorage.getItem('access_token');
+            const storedToken = localStorage.getItem('token');
             const storedRole = localStorage.getItem('user_role');
             const storedUserData = localStorage.getItem('user_data');
 
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (accessToken, userRole, userData) => {
-        localStorage.setItem('access_token', accessToken);
+        localStorage.setItem('token', accessToken);
         localStorage.setItem('user_role', userRole);
         localStorage.setItem('user_data', JSON.stringify(userData));
         setToken(accessToken);
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('access_token');
+        localStorage.removeItem('token');
         localStorage.removeItem('user_role');
         localStorage.removeItem('user_data');
         setToken(null);
@@ -58,6 +58,7 @@ export const AuthProvider = ({ children }) => {
         socketService.disconnect();
         window.location.href = '/login';
     };
+
 
     return (
         <AuthContext.Provider value={{ user, token, role, loading, login, logout }}>
