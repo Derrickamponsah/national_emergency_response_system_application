@@ -1,19 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import './index.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
-import { NotificationProvider } from './contexts/NotificationContext';
+import './index.css';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
+ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
+      {/* ✅ AuthProvider must wrap everything so useAuth() works in every component */}
       <AuthProvider>
-        <NotificationProvider>
-          <App />
-        </NotificationProvider>
+        <App />
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>

@@ -5,63 +5,77 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('token'));
-    const [role, setRole] = useState(localStorage.getItem('user_role'));
+    const [token, setToken] = useState(null);
+    const [role, setRole] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const verifySession = async () => {
+        const verifySession = () => {
             const storedToken = localStorage.getItem('token');
             const storedRole = localStorage.getItem('user_role');
             const storedUserData = localStorage.getItem('user_data');
 
-            if (storedToken) {
+            if (storedToken && storedRole) {
                 try {
+                    const parsedUser = storedUserData
+                        ? JSON.parse(storedUserData)
+                        : { role: storedRole };
+
                     setToken(storedToken);
                     setRole(storedRole);
-                    setUser(storedUserData ? JSON.parse(storedUserData) : { role: storedRole });
-                    
-                    // Initialize Real-time Mesh
+                    setUser(parsedUser);
+
+                    // Reconnect socket on page reload
                     socketService.connect(storedToken);
                 } catch (error) {
-                    logout();
+                    // Corrupted storage — clear and start fresh
+                    console.error('Session restore failed:', error);
+                    _clearStorage();
                 }
             }
+
             setLoading(false);
         };
+
         verifySession();
 
         return () => socketService.disconnect();
     }, []);
 
+    const _clearStorage = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('user_data');
+    };
+
     const login = (accessToken, userRole, userData) => {
-        localStorage.setItem('token', accessToken);
-        localStorage.setItem('user_role', userRole);
-        localStorage.setItem('user_data', JSON.stringify(userData));
+        // Storage is already written by Login.jsx before calling this
+        // Just sync React state
         setToken(accessToken);
         setRole(userRole);
         setUser(userData);
-        
-        // Connect to Real-time Mesh
         socketService.connect(accessToken);
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('user_data');
+        _clearStorage();
         setToken(null);
         setRole(null);
         setUser(null);
-        
-        // Disconnect from Mesh
         socketService.disconnect();
         window.location.href = '/login';
     };
 
-
     return (
-        <AuthContext.Provider value={{ user, token, role, loading, login, logout }}>
+        <AuthContext.Provider value={{
+            user,
+            token,
+            role,
+            loading,
+            login,
+            logout,
+            isAuthenticated: !!token && !!user, // ✅ Exposed so Login.jsx redirect works
+        }}>
             {children}
         </AuthContext.Provider>
     );
