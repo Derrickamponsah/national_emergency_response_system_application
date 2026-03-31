@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { SERVICES } from '../../services/api';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -50,7 +51,7 @@ const Register = () => {
         setApiError('');
 
         try {
-            await axios.post('http://localhost:3001/auth/register', {
+            await axios.post(`${SERVICES.AUTH}/auth/register`, {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,

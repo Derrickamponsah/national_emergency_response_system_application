@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../hooks/useAuth';
+import { SERVICES } from '../../services/api';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -55,7 +56,7 @@ const Login = () => {
         setApiError('');
 
         try {
-            const response = await axios.post('http://localhost:3001/auth/login', {
+            const response = await axios.post(`${SERVICES.AUTH}/auth/login`, {
                 email: formData.email,
                 password: formData.password
             });
