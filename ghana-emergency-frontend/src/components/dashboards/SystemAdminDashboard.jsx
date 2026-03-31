@@ -32,8 +32,6 @@ const SystemAdminDashboard = () => {
     const [showVehicleModal, setShowVehicleModal] = useState(false);
     const [selectedVehicleType, setSelectedVehicleType] = useState(null);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
-    const [showVehicleModal, setShowVehicleModal] = useState(false);
-    const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [updatingStatus, setUpdatingStatus] = useState(false);
     const [showLiveTracking, setShowLiveTracking] = useState(false);
     const [trackingData, setTrackingData] = useState({
@@ -548,7 +546,6 @@ const SystemAdminDashboard = () => {
                         </span>
                     </div>
                 </footer>
-            </main>
             </main>
 
             {/* Vehicle Registration Modal */}
