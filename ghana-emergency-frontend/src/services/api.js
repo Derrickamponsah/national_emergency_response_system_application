@@ -8,22 +8,22 @@ export const SERVICES = {
     ANALYTICS: import.meta.env.VITE_ANALYTICS_API_URL || 'http://localhost:3004',
 };
 
+// Create axios instance
 const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Request Interceptor for Auth
+// Request Interceptor: Add Authorization header
 api.interceptors.request.use(
     (config) => {
-        // ⚡ FIX: Use the same key as stored in Login.jsx
-        const token = localStorage.getItem('token'); // <-- changed from 'access_token' to 'token'
+        const token = localStorage.getItem('token'); // must match key used in Login.jsx
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // If no full URL is provided, prepend the default (Incident service)
+        // If no full URL is provided, default to INCIDENT service
         if (!config.url.startsWith('http')) {
             config.url = `${SERVICES.INCIDENT}${config.url}`;
         }
@@ -33,16 +33,18 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response Interceptor for Token Expiry
+// Response Interceptor: handle token expiry
 api.interceptors.response.use(
     (response) => response,
-    async (error) => {
+    (error) => {
+        // Only clear on actual 401 or 403 errors
         if (error.response?.status === 401 || error.response?.status === 403) {
-            // Clear invalid token and redirect
+            console.warn('Invalid or expired token detected');
             localStorage.removeItem('token');
             localStorage.removeItem('user_role');
             localStorage.removeItem('user_data');
-            window.location.href = '/login';
+            // Optional: you can redirect manually when needed
+            // window.location.href = '/login';
         }
         return Promise.reject(error);
     }

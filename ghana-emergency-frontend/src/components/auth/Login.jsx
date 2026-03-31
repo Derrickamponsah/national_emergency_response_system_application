@@ -50,21 +50,22 @@ const Login = () => {
 
             const { access_token, user } = response.data;
 
-            // ✅ FIX: Store token reliably
             if (!access_token) throw new Error('No token received from server');
-            localStorage.setItem('token', access_token); // now guaranteed
 
-            // Update global auth context
+            // ✅ Minimal fix: store token and user data
+            localStorage.setItem('token', access_token);
+            localStorage.setItem('user_role', user.role);
+            localStorage.setItem('user_data', JSON.stringify(user));
+
+            // update auth context
             login(access_token, user.role, user);
 
-            // Remember email if requested
             if (formData.rememberMe) {
                 localStorage.setItem('remembered_email', formData.email);
             } else {
                 localStorage.removeItem('remembered_email');
             }
 
-            // Redirect based on role
             const roleRoutes = {
                 SYSTEM_ADMIN: '/',
                 HOSPITAL_ADMIN: '/hospital',
@@ -72,7 +73,8 @@ const Login = () => {
                 FIRE_ADMIN: '/fire',
             };
 
-            navigate(roleRoutes[user.role] || '/');
+            // ✅ Prevent redirect back to login
+            navigate(roleRoutes[user.role] || '/', { replace: true });
 
         } catch (error) {
             console.error('Login error:', error);
@@ -88,7 +90,6 @@ const Login = () => {
         }
     };
 
-    // ✅ Pre-fill remembered email
     useEffect(() => {
         const rememberedEmail = localStorage.getItem('remembered_email');
         if (rememberedEmail) {
@@ -133,6 +134,7 @@ const Login = () => {
 
                     <div className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-10">
                         <div className="p-8 md:p-12">
+                            {/* Form Header */}
                             <div className="mb-10">
                                 <h2 className="text-slate-900 dark:text-slate-100 text-3xl font-black leading-tight tracking-tight">
                                     Personnel Login
@@ -143,6 +145,7 @@ const Login = () => {
                                 </p>
                             </div>
 
+                            {/* API Error */}
                             {apiError && (
                                 <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
                                     <span className="material-symbols-outlined text-red-500 text-xl">error</span>
@@ -157,12 +160,11 @@ const Login = () => {
                                 </div>
                             )}
 
+                            {/* Login Form */}
                             <form onSubmit={handleSubmit} className="space-y-6">
+                                {/* Email Field */}
                                 <div className="space-y-2">
-                                    <label 
-                                        htmlFor="email"
-                                        className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1"
-                                    >
+                                    <label htmlFor="email" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1">
                                         Email Address
                                     </label>
                                     <div className="relative group">
@@ -175,30 +177,19 @@ const Login = () => {
                                             id="email"
                                             type="email"
                                             name="email"
-                                            autoComplete="email"
                                             value={formData.email}
                                             onChange={handleChange}
-                                            className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.email
-                                                ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                                                : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'
-                                                } rounded-lg focus:ring-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all outline-none`}
                                             placeholder="name@ghana911.gov.gh"
                                             disabled={loading}
+                                            className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.email ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'} rounded-lg focus:ring-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all outline-none`}
                                         />
                                     </div>
-                                    {errors.email && (
-                                        <p className="text-xs text-red-500 px-1 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-sm">warning</span>
-                                            {errors.email}
-                                        </p>
-                                    )}
+                                    {errors.email && <p className="text-xs text-red-500 px-1 flex items-center gap-1"><span className="material-symbols-outlined text-sm">warning</span>{errors.email}</p>}
                                 </div>
 
+                                {/* Password Field */}
                                 <div className="space-y-2">
-                                    <label 
-                                        htmlFor="password"
-                                        className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1"
-                                    >
+                                    <label htmlFor="password" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest px-1">
                                         Security Credentials
                                     </label>
                                     <div className="relative group">
@@ -211,25 +202,17 @@ const Login = () => {
                                             id="password"
                                             type="password"
                                             name="password"
-                                            autoComplete="current-password"
                                             value={formData.password}
                                             onChange={handleChange}
-                                            className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.password
-                                                ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                                                : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'
-                                                } rounded-lg focus:ring-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all outline-none`}
                                             placeholder="Enter account password"
                                             disabled={loading}
+                                            className={`block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border ${errors.password ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-200 dark:border-slate-700 focus:ring-primary/20 focus:border-primary'} rounded-lg focus:ring-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all outline-none`}
                                         />
                                     </div>
-                                    {errors.password && (
-                                        <p className="text-xs text-red-500 px-1 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-sm">warning</span>
-                                            {errors.password}
-                                        </p>
-                                    )}
+                                    {errors.password && <p className="text-xs text-red-500 px-1 flex items-center gap-1"><span className="material-symbols-outlined text-sm">warning</span>{errors.password}</p>}
                                 </div>
 
+                                {/* Remember Me / Forgot */}
                                 <div className="flex items-center justify-between py-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input
@@ -237,8 +220,8 @@ const Login = () => {
                                             name="rememberMe"
                                             checked={formData.rememberMe}
                                             onChange={handleChange}
-                                            className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
                                             disabled={loading}
+                                            className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
                                         />
                                         <span className="text-sm text-slate-600 dark:text-slate-400">
                                             Remember Station
@@ -249,6 +232,7 @@ const Login = () => {
                                     </Link>
                                 </div>
 
+                                {/* Submit Button */}
                                 <button
                                     type="submit"
                                     disabled={loading}
@@ -269,13 +253,11 @@ const Login = () => {
                                     )}
                                 </button>
 
+                                {/* Register Link */}
                                 <div className="text-center pt-4">
                                     <p className="text-sm text-slate-600 dark:text-slate-400">
                                         New personnel?{' '}
-                                        <Link
-                                            to="/register"
-                                            className="font-semibold text-primary hover:underline"
-                                        >
+                                        <Link to="/register" className="font-semibold text-primary hover:underline">
                                             Request Access Credentials
                                         </Link>
                                     </p>
@@ -283,6 +265,7 @@ const Login = () => {
                             </form>
                         </div>
 
+                        {/* Footer Info */}
                         <div className="bg-slate-50 dark:bg-slate-800/50 p-6 border-t border-slate-200 dark:border-slate-800 flex items-center gap-4">
                             <span className="material-symbols-outlined text-amber-500 animate-pulse">info</span>
                             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
@@ -292,6 +275,7 @@ const Login = () => {
                     </div>
                 </main>
 
+                {/* Footer */}
                 <footer className="bg-primary h-12 flex items-center overflow-hidden border-t-4 border-amber-500">
                     <div className="bg-amber-500 px-6 h-full flex items-center font-black text-primary text-xs tracking-tighter shrink-0 z-20">
                         EMERGENCY BROADCAST
