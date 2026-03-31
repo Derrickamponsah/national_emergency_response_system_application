@@ -131,6 +131,43 @@ class AnalyticsController {
             return res.status(500).json({ error: err.message });
         }
     }
+
+    /**
+     * Get operational summary for dashboards
+     */
+    static async getOperationalSummary(req, res) {
+        try {
+            // Get today's summary
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const summary = await prisma.dailySummary.findFirst({
+                where: { summaryDate: today }
+            });
+
+            // Get recent incident count
+            const recentIncidents = await prisma.incidentEvent.findMany({
+                where: {
+                    createdAt: {
+                        gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                    }
+                }
+            });
+
+            return res.json({
+                totalIncidents: summary?.totalIncidents || recentIncidents.length,
+                activeVehicles: summary?.activeVehicles || 0,
+                onlineStaff: summary?.onlineStaff || 0,
+                medicalIncidents: summary?.medicalIncidents || 0,
+                fireIncidents: summary?.fireIncidents || 0,
+                crimeIncidents: summary?.crimeIncidents || 0,
+                roadIncidents: summary?.roadIncidents || 0
+            });
+        } catch (err) {
+            console.error('Error getting operational summary:', err);
+            return res.status(500).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = AnalyticsController;

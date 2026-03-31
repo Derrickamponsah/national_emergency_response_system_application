@@ -15,7 +15,7 @@ services:
       - key: DATABASE_URL
         sync: false # Should be set in dashboard
       - key: JWT_SECRET
-        generateValue: true
+        value: 14b9a637dcc6bc1e89758eaf0a4bb0a9fe019930f28f4876eff2621174026982
       - key: RABBITMQ_URL
         sync: false # CloudAMQP URL
       - key: PORT

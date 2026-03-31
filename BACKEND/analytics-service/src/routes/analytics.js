@@ -44,4 +44,12 @@ router.get('/resource-utilization', authMiddleware, AnalyticsController.getResou
  */
 router.get('/daily-summary', authMiddleware, AnalyticsController.getDailySummary);
 
+/**
+ * @route GET /analytics/summary
+ * @desc Get operational summary for dashboards
+ * @header Authorization: Bearer <token>
+ * @returns {totalIncidents, activeVehicles, onlineStaff, ...}
+ */
+router.get('/summary', authMiddleware, AnalyticsController.getOperationalSummary);
+
 module.exports = router;

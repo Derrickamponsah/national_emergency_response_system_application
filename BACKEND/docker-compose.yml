@@ -50,7 +50,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/emergency_auth_db?schema=public
       RABBITMQ_URL: amqp://rabbitmq:5672
       PORT: 3001
-      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+      JWT_SECRET: 14b9a637dcc6bc1e89758eaf0a4bb0a9fe019930f28f4876eff2621174026982
     ports:
       - "3001:3001"
     depends_on:
@@ -66,7 +66,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/emergency_incidents_db?schema=public
       RABBITMQ_URL: amqp://rabbitmq:5672
       PORT: 3002
-      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+      JWT_SECRET: 14b9a637dcc6bc1e89758eaf0a4bb0a9fe019930f28f4876eff2621174026982
     ports:
       - "3002:3002"
     depends_on:
@@ -82,7 +82,7 @@ services:
       DATABASE_URL: mongodb://mongodb:27017/emergency_dispatch_db?replicaSet=rs0
       RABBITMQ_URL: amqp://rabbitmq:5672
       PORT: 3003
-      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+      JWT_SECRET: 14b9a637dcc6bc1e89758eaf0a4bb0a9fe019930f28f4876eff2621174026982
       WS_PORT: 3003
       CORS_ORIGIN: http://localhost:3000
     ports:
@@ -100,7 +100,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/emergency_analytics_db?schema=public
       RABBITMQ_URL: amqp://rabbitmq:5672
       PORT: 3004
-      JWT_SECRET: your_very_long_random_secret_key_change_in_production
+      JWT_SECRET: 14b9a637dcc6bc1e89758eaf0a4bb0a9fe019930f28f4876eff2621174026982
     ports:
       - "3004:3004"
     depends_on:
