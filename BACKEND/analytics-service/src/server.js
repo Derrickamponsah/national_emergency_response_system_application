@@ -27,16 +27,7 @@ app.use((req, res, next) => {
 // ============================================
 // SWAGGER UI
 // ============================================
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    swaggerOptions: {
-        deepLinking: true,
-        presets: [
-            swaggerUi.presets.apis,
-            swaggerUi.SwaggerUIBundle.presets.apis
-        ],
-        layout: 'BaseLayout'
-    }
-}));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ============================================
 // ROUTES
