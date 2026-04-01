@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 const { connectDB, closeDB, prisma } = require('./db');
 const { startRabbitMQConsumer } = require('./utils/rabbit');
 const DispatchController = require('./controllers/dispatchController');
 require('dotenv').config();
 
-
 const vehicleRoutes = require('./routes/vehicles');
+const swaggerSpec = require('./swagger');
 
 const app = express();
 
@@ -22,6 +23,20 @@ app.use((req, res, next) => {
     console.log(`📨 ${req.method} ${req.path}`);
     next();
 });
+
+// ============================================
+// SWAGGER UI
+// ============================================
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+        deepLinking: true,
+        presets: [
+            swaggerUi.presets.apis,
+            swaggerUi.SwaggerUIBundle.presets.apis
+        ],
+        layout: 'BaseLayout'
+    }
+}));
 
 // ============================================
 // ROUTES

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 const prisma = require('./db');
 const { connectRabbitMQ } = require('./utils/rabbit');
 const { initSocketServer } = require('./utils/socket'); // Added socket
@@ -7,6 +8,7 @@ const http = require('http'); // Added http
 require('dotenv').config();
 
 const incidentRoutes = require('./routes/incidents');
+const swaggerSpec = require('./swagger');
 
 const app = express();
 const httpServer = http.createServer(app); // Create HTTP Server
@@ -24,6 +26,20 @@ app.use((req, res, next) => {
     console.log(`📨 ${req.method} ${req.path}`);
     next();
 });
+
+// ============================================
+// SWAGGER UI
+// ============================================
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+        deepLinking: true,
+        presets: [
+            swaggerUi.presets.apis,
+            swaggerUi.SwaggerUIBundle.presets.apis
+        ],
+        layout: 'BaseLayout'
+    }
+}));
 
 // ============================================
 // ROUTES

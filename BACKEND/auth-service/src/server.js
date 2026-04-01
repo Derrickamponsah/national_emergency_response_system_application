@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 const prisma = require('./db');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
+const swaggerSpec = require('./swagger');
 
 const app = express();
 
@@ -19,6 +21,20 @@ app.use((req, res, next) => {
     console.log(`📨 ${req.method} ${req.path}`);
     next();
 });
+
+// ============================================
+// SWAGGER UI
+// ============================================
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+        deepLinking: true,
+        presets: [
+            swaggerUi.presets.apis,
+            swaggerUi.SwaggerUIBundle.presets.apis
+        ],
+        layout: 'BaseLayout'
+    }
+}));
 
 // ============================================
 // ROUTES

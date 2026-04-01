@@ -1,11 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 const prisma = require('./db');
 const { startAnalyticsConsumer } = require('./utils/rabbit');
 const AnalyticsController = require('./controllers/analyticsController');
 require('dotenv').config();
 
 const analyticsRoutes = require('./routes/analytics');
+const swaggerSpec = require('./swagger');
 
 const app = express();
 
@@ -21,6 +23,20 @@ app.use((req, res, next) => {
     console.log(`📨 ${req.method} ${req.path}`);
     next();
 });
+
+// ============================================
+// SWAGGER UI
+// ============================================
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+        deepLinking: true,
+        presets: [
+            swaggerUi.presets.apis,
+            swaggerUi.SwaggerUIBundle.presets.apis
+        ],
+        layout: 'BaseLayout'
+    }
+}));
 
 // ============================================
 // ROUTES
